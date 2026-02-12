@@ -1,5 +1,4 @@
-﻿FROM python:3.11-slim
-
+FROM python:3.10-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -14,19 +13,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     python3-dev \
     git \
-    curl \
     libopenblas-dev \
     liblapack-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python dependencies
+# Copy and install Python dependencies
 COPY requirements.txt /app/requirements.txt
-RUN python -m pip install --upgrade pip setuptools wheel cython
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir --no-binary=:all: lightfm \
-    && pip install --no-cache-dir streamlit
+RUN python -m pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    cd /tmp && \
+    git clone https://github.com/lyst/lightfm.git && \
+    cd lightfm && \
+    git checkout 1.17 && \
+    sed -i "s/__builtins__.__LIGHTFM_SETUP__ = True/import builtins; builtins.__LIGHTFM_SETUP__ = True/" setup.py && \
+    pip install . && \
+    cd / && \
+    rm -rf /tmp/lightfm
 
 # Copy app code
 COPY . /app
@@ -34,5 +38,5 @@ COPY . /app
 # Expose Streamlit port
 EXPOSE 8501
 
-# Run Streamlit (change "streamlit_app.py" to your file)
+# Run Streamlit
 CMD ["streamlit", "run", "streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
